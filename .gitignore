@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
-__pycache__/
+
+/__pycache__/*
 *.py[cod]
 *$py.class
 
@@ -7,3 +8,7 @@ __pycache__/
 target/
 venv/lib/python3.7
 
+Graph/*
+
+training.log
+streetfighter_weight.h5

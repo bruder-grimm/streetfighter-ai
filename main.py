@@ -2,11 +2,18 @@ import retro
 import random
 import os
 import numpy as np
+import argparse
 from collections      import deque
 from keras.models     import Sequential
 from keras.layers     import Dense
 from keras.optimizers import Adam
 from DQLAgent import Agent
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--headless', action='store_true', default='false', help='Run in headless mode')
+args = parser.parse_args()
+headless = args.headless
 
 def action_to_array(action):
 
@@ -54,7 +61,9 @@ class CartPole:
 
 
                 while not done:
-                    self.env.render()
+
+                    if not headless:
+                        self.env.render()
 
                     action = self.agent.act(state)
 
