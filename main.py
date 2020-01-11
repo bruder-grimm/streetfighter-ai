@@ -1,4 +1,4 @@
-import gym
+import retro
 import random
 import os
 import numpy as np
@@ -14,8 +14,11 @@ class CartPole:
     def __init__(self):
         self.sample_batch_size = 32
         self.episodes          = 10000
-        self.env               = gym.make('CartPole-v1')
-
+        self.env               = nv = retro.make(
+        'StreetFighterIISpecialChampionEdition-Genesis',
+        scenario='scenario',
+        obs_type=retro.Observations.RAM
+    )
         self.state_size        = self.env.observation_space.shape[0]
         self.action_size       = self.env.action_space.n
         self.agent             = Agent(self.state_size, self.action_size)
@@ -29,8 +32,11 @@ class CartPole:
 
                 done = False
                 index = 0
+
+
+
                 while not done:
-#                    self.env.render()
+                    # self.env.render()
 
                     action = self.agent.act(state)
 
