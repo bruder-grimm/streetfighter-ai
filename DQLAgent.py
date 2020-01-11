@@ -8,7 +8,7 @@ from collections      import deque
 from tensorflow.keras.models     import Sequential
 from tensorflow.keras.layers     import Dense, InputLayer
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import TensorBoard
+from tensorflow.keras.callbacks import TensorBoard, CSVLogger
 
 class Agent():
     def __init__(self, state_size, action_size):
@@ -16,25 +16,27 @@ class Agent():
         self.state_size         = state_size
         self.action_size        = action_size
         self.memory             = deque(maxlen=2000)
-        self.learning_rate      = 0.001
-        self.gamma              = 0.95
-        self.exploration_rate   = 1.0
+        self.learning_rate      = 1e-2
+        self.gamma              = 0.99
+        self.exploration_rate   = 1.0 #WK fuer random action -> epsilon
         self.exploration_min    = 0.01
         self.exploration_decay  = 0.995
-        self.brain              = self._build_model()
+        self.brain              = self._build_model() # -> model
 
     def _build_model(self):
         # Neural Net for Deep-Q learning Model
         model = Sequential()
+
         # model.add(Dense(24, input_dim=self.state_size, activation='relu'))
         # model.add(Dense(24, activation='relu'))
         # model.add(Dense(self.action_size, activation='linear'))
         # model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
+
         model.add(InputLayer(input_shape=(self.state_size)))
         model.add(Dense(128, activation='relu', kernel_initializer='RandomNormal'))
         model.add(Dense(256, activation='relu', kernel_initializer='RandomNormal'))
         model.add(Dense(self.action_size, activation='linear', kernel_initializer='RandomNormal'))
-
+        model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
 
 
         if os.path.isfile(self.weight_backup):
@@ -57,6 +59,7 @@ class Agent():
     def replay(self, sample_batch_size):
 
         tbCallBack = TensorBoard(log_dir='./Graph', histogram_freq=0, write_graph=True, write_images=True)
+        csv_logger = CSVLogger('training.log', append=True, separator='|')
 
         if len(self.memory) < sample_batch_size:
             return
@@ -67,7 +70,9 @@ class Agent():
               target = reward + self.gamma * np.amax(self.brain.predict(next_state)[0])
             target_f = self.brain.predict(state)
             target_f[0][action] = target
-            self.brain.fit(state, target_f, epochs=1, verbose=0, callbacks=[tbCallBack])
+
+
+            self.brain.fit(state, target_f, epochs=1, verbose=0, callbacks=[tbCallBack, csv_logger])
 
 
 
