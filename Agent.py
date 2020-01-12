@@ -7,15 +7,43 @@ from tensorflow.keras.callbacks import TensorBoard, CSVLogger
 from tensorflow.keras.layers import Dense, InputLayer
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
+from tensorflow_core.python.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
+
+filepath_best = "model_weights_best.hdf5"
+filepath_last = "model_weights_last.hdf5"
+checkpoint = ModelCheckpoint(
+    filepath_best,
+    monitor='val_loss',
+    verbose=1,
+    save_best_only=True,
+    save_weights_only=True,
+    period=10,
+    mode='min'
+)
+
+reduce_lr = ReduceLROnPlateau(
+    monitor='val_loss',
+    factor=0.1,
+    patience=10,
+    verbose=0,
+    mode='auto',
+    min_delta=0.0001,
+    cooldown=0,
+    min_lr=0
+)
+
+tb_call_back = TensorBoard(log_dir='./Graph', histogram_freq=0, write_graph=True, write_images=False)
+csv_logger = CSVLogger('training.log', append=True, separator='|')
+
+callbacks=[checkpoint, tb_call_back, csv_logger, reduce_lr]
 
 
 class Agent:
     def __init__(self, state_size, action_size):
-        self.weight_backup = "streetfighter_weight.h5"
         self.state_size = state_size
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
-        self.learning_rate = 1e-2
+        self.learning_rate = 0.001
         self.gamma = 0.99
         self.epsilon = 1.0
         self.exploration_min = 0.01
@@ -32,13 +60,13 @@ class Agent:
 
         model.compile(loss='mse', optimizer=Adam(self.learning_rate))
 
-        if os.path.isfile(self.weight_backup):
-            model.load_weights(self.weight_backup)
+        if os.path.isfile(filepath_best):
+            model.load_weights(filepath_best)
             self.epsilon = self.exploration_min
         return model
 
     def save_model(self):
-        self.model.save(self.weight_backup)
+        self.model.save(filepath_last)
 
     def get_next_action(self, state):
         if np.random.rand() <= self.epsilon:
@@ -50,10 +78,6 @@ class Agent:
         self.memory.append((state, action, reward, next_state, done))
 
     def replay(self, sample_batch_size):
-
-        tb_call_back = TensorBoard(log_dir='./Graph', histogram_freq=1, write_graph=True, write_images=False)
-        csv_logger = CSVLogger('training.log', append=True, separator='|')
-
         if len(self.memory) < sample_batch_size:
             return
         sample_batch = random.sample(self.memory, sample_batch_size)
@@ -64,7 +88,7 @@ class Agent:
             predicted_q = self.model.predict(state)
             predicted_q[0][action] = q
 
-            self.model.fit(state, predicted_q, epochs=1, verbose=1, callbacks=[tb_call_back, csv_logger])
+            self.model.fit(state, predicted_q, epochs=1, verbose=1, callbacks=callbacks)
 
         if self.epsilon > self.exploration_min:
             self.epsilon *= self.exploration_decay

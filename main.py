@@ -57,6 +57,7 @@ class Trainer:
 
                 done = False
                 total_reward = 0
+                index = 0
 
                 last_enemy_health = base_health
                 last_own_health = base_health
@@ -94,8 +95,10 @@ class Trainer:
                     self.agent.remember(state, action, reward, next_state, done)
                     total_reward = total_reward + reward
 
+                    index += 1
+
                     state = next_state
-                print("Episode {}# Score: {}".format(episode_index, total_reward))
+                print("Episode {}# Score: {} Index: {}".format(episode_index, total_reward, index))
                 self.agent.replay(self.sample_batch_size)
         finally:
             self.agent.save_model()
