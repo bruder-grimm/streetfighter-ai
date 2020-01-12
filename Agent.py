@@ -51,7 +51,7 @@ class Agent:
 
     def replay(self, sample_batch_size):
 
-        tb_call_back = TensorBoard(log_dir='./Graph', histogram_freq=1, write_graph=True, write_images=True)
+        tb_call_back = TensorBoard(log_dir='./Graph', histogram_freq=1, write_graph=True, write_images=False)
         csv_logger = CSVLogger('training.log', append=True, separator='|')
 
         if len(self.memory) < sample_batch_size:
