@@ -13,16 +13,16 @@ filepath_best = "model_weights_best.hdf5"
 filepath_last = "model_weights_last.hdf5"
 checkpoint = ModelCheckpoint(
     filepath_best,
-    monitor='val_loss',
+    monitor='loss',
     verbose=1,
     save_best_only=True,
     save_weights_only=True,
-    period=10,
+    save_freq=10,
     mode='min'
 )
 
 reduce_lr = ReduceLROnPlateau(
-    monitor='val_loss',
+    monitor='loss',
     factor=0.1,
     patience=10,
     verbose=0,
@@ -88,7 +88,7 @@ class Agent:
             predicted_q = self.model.predict(state)
             predicted_q[0][action] = q
 
-            self.model.fit(state, predicted_q, epochs=1, verbose=1, callbacks=callbacks)
+            self.model.fit(state, predicted_q, epochs=1, verbose=0, callbacks=callbacks)
 
         if self.epsilon > self.exploration_min:
             self.epsilon *= self.exploration_decay
