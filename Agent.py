@@ -26,8 +26,8 @@ class Agent:
         model = Sequential()
 
         model.add(InputLayer(input_shape=self.state_size))
-        model.add(Dense(128, activation='relu', kernel_initializer='RandomNormal'))
-        model.add(Dense(256, activation='relu', kernel_initializer='RandomNormal'))
+        model.add(Dense(64, activation='relu', kernel_initializer='RandomNormal'))
+        model.add(Dense(64, activation='relu', kernel_initializer='RandomNormal'))
         model.add(Dense(self.action_size, activation='linear', kernel_initializer='RandomNormal'))
 
         model.compile(loss='mse', optimizer=Adam(self.learning_rate))
@@ -50,8 +50,7 @@ class Agent:
         self.memory.append((state, action, reward, next_state, done))
 
     def replay(self, sample_batch_size):
-        tb_call_back = TensorBoard(log_dir='./Graph', histogram_freq=0, write_graph=True, write_images=True)
-        csv_logger = CSVLogger('training.log', append=True, separator='|')
+        tb_call_back = TensorBoard(log_dir='./Graph', histogram_freq=1)
 
         if len(self.memory) < sample_batch_size:
             return
@@ -63,7 +62,7 @@ class Agent:
             predicted_q = self.model.predict(state)
             predicted_q[0][action] = q
 
-            self.model.fit(state, predicted_q, epochs=1, verbose=0, callbacks=[tb_call_back, csv_logger])
+            self.model.fit(state, predicted_q, epochs=1, verbose=1, callbacks=[tb_call_back])
 
         if self.epsilon > self.exploration_min:
             self.epsilon *= self.exploration_decay

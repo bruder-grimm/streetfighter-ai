@@ -40,7 +40,7 @@ class Trainer:
             obs_type=retro.Observations.RAM
         )
 
-        self.sample_batch_size = 12  # since we're running ntsc, copy weights every quarter second
+        self.sample_batch_size = 32
         self.episodes = 10000
         self.input_size = self.env.observation_space.shape[0]
         self.output_size = self.env.action_space.n
