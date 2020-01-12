@@ -50,7 +50,9 @@ class Agent:
         self.memory.append((state, action, reward, next_state, done))
 
     def replay(self, sample_batch_size):
-        tb_call_back = TensorBoard(log_dir='./Graph', histogram_freq=1)
+
+        tb_call_back = TensorBoard(log_dir='./Graph', histogram_freq=1, write_graph=True, write_images=True)
+        csv_logger = CSVLogger('training.log', append=True, separator='|')
 
         if len(self.memory) < sample_batch_size:
             return
@@ -62,7 +64,7 @@ class Agent:
             predicted_q = self.model.predict(state)
             predicted_q[0][action] = q
 
-            self.model.fit(state, predicted_q, epochs=1, verbose=1, callbacks=[tb_call_back])
+            self.model.fit(state, predicted_q, epochs=1, verbose=1, callbacks=[tb_call_back, csv_logger])
 
         if self.epsilon > self.exploration_min:
             self.epsilon *= self.exploration_decay
