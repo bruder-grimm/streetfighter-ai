@@ -103,7 +103,7 @@ class Trainer:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--headless', default=False, help='Run in headless mode')
+    parser.add_argument('--headless', action='store_true', default=False, help='Run in headless mode')
     args = parser.parse_args()
 
     streetfighter_training = Trainer()
