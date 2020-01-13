@@ -21,8 +21,8 @@ class Agent:
         self.state_size = state_size
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
-        self.learning_rate = 0.001
-        self.gamma = 0.99
+        self.learning_rate = 0.1
+        self.gamma = 0.4
         self.epsilon = 1.0
         self.exploration_min = 0.01
         self.exploration_decay = 0.995
