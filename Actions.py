@@ -1,5 +1,6 @@
 import numpy as np
 
+
 # Creates a one-hot array from a numeric action within the action space
 def action_to_array(action, n):
     # We thought about predefining combos right here but decided against it for the scope of this work,

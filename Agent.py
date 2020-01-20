@@ -1,6 +1,7 @@
 import os
 import random
-from collections import deque
+from random import randint
+from random import seed
 
 import numpy as np
 from tensorflow.keras.callbacks import TensorBoard, CSVLogger
@@ -14,7 +15,7 @@ csv_logger = CSVLogger('training.log', append=True, separator='|')
 
 class Agent:
     def __init__(self, state_size, action_size, gamma, epsilon, learning_rate, log_dir, batch_size):
-        self.replay_buffer = deque(maxlen=2000)
+        self.replay_buffer = {'state': [], 'action': [], 'reward': [], 'next_state': [], 'done': []}
 
         self.state_size = state_size
         self.action_size = action_size
@@ -26,6 +27,8 @@ class Agent:
         self.batch_size = batch_size
         self.exploration_min = 0.01
         self.exploration_decay = 0.995
+
+        self.max_experiences = 10000
 
         self.filepath_best = "model_weights_{}_{}_{}_best.hdf5".format(str(gamma), str(epsilon), str(learning_rate))
         self.filepath_last = "model_weights_{}_{}_{}_last.hdf5".format(str(gamma), str(epsilon), str(learning_rate))
@@ -81,7 +84,16 @@ class Agent:
         return np.argmax(act_values[0])
 
     def add_to_experience(self, state, action, reward, next_state, done):
-        self.replay_buffer.append((state, action, reward, next_state, done))
+        if isinstance(action, np.int64):
+            action = action.astype(int)
+
+        if len(self.replay_buffer['state']) >= self.max_experiences:
+            for key in self.replay_buffer.keys():
+                self.replay_buffer[key].pop(0)
+
+        experience = {'state': state, 'action': action, 'reward': reward, 'next_state': next_state, 'done': done}
+        for key, value in experience.items():
+            self.replay_buffer[key].append(value)
 
     # update the q values in the table
     # We predict a q value, multiply it with the discount factor depending on how much weight we want to give our
@@ -90,15 +102,31 @@ class Agent:
     # On terminal state, we update with the reward
     # will save the model with the prefix "_best" if loss has improved
     def train_on_experience(self):
-        if len(self.replay_buffer) < self.batch_size:
+        collected_experience = len(self.replay_buffer['state'])
+
+        if collected_experience < self.batch_size:
             return
 
-        sample_batch = random.sample(self.replay_buffer, self.batch_size)
+        seed(1)
 
-        for state, action, reward, next_state, done in sample_batch:
+        for _ in range(self.batch_size):
+            sample = randint(0, collected_experience - 1)
+
+            state = self.replay_buffer['state'][sample],
+            action = self.replay_buffer['action'][sample],
+            reward = self.replay_buffer['reward'][sample],
+            next_state = self.replay_buffer['next_state'][sample],
+            done = self.replay_buffer['done'][sample]
+
             q = reward  # terminal state the value gets updated with the reward
             if not done:
                 q = reward + self.gamma * np.amax(self.model.predict(next_state)[0])
+
+            # we're having some type issues and no one knows why
+            if isinstance(q, np.ndarray):
+                q = q.item(0)
+            elif isinstance(q, tuple):
+                q = q[0]
 
             predicted_q = self.model.predict(state)
             predicted_q[0][action] = q  # update the q value for the executed action in the predicted
@@ -106,8 +134,7 @@ class Agent:
             self.model.fit(
                 state,          # our q
                 predicted_q,    # our q'
-                epochs=1,
-                verbose=1,
+                verbose=2,
                 callbacks=[self.checkpoint, self.tb_call_back, self.reduce_lr, csv_logger]
             )
 
