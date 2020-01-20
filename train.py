@@ -66,8 +66,8 @@ class Trainer:
                     if enemy_health != last_enemy_health or own_health != last_own_health:
                         if enemy_health != self.base_health or own_health != self.base_health:
 
-                            damage_reward = (last_enemy_health - enemy_health) / self.base_health
-                            avoidance_reward = (own_health - last_own_health) / self.base_health
+                            damage_reward = (last_enemy_health - enemy_health) / 5
+                            avoidance_reward = (own_health - last_own_health) / 100
 
                             # our reward is defined by 'damage I inflict - damage I receive'
                             reward = damage_reward + avoidance_reward
