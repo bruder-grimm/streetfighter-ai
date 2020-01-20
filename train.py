@@ -53,7 +53,7 @@ class Trainer:
 
                 # this is the base observation
                 state = self.env.reset()
-                state = np.reshape(state, [1, self.input_size])
+                state = np.reshape(scale(state), [1, self.input_size])
 
                 # we want to observe health change from last to this state for reward
                 last_enemy_health = base_health
@@ -75,7 +75,7 @@ class Trainer:
                         next_state, _, done, ram = self.env.step(self.noop)
 
                         if not done:  # advance the state s_prime to be s_prime + frameskip
-                            state = np.reshape(next_state, [1, self.input_size])
+                            state = np.reshape(scale(next_state), [1, self.input_size])
                         else:  # premature end, we usually hope that the game doesn't end during skipped frames
                             print("Episode done during skipped frame, rewards may be off")
                             state = self.reshape_next_state_and_add_to_model_experience(
@@ -134,10 +134,14 @@ class Trainer:
 
     # add the state and action to the memory to train on once the episode is done
     def reshape_next_state_and_add_to_model_experience(self, state, action, reward, next_state, done):
-        next_state = np.reshape(next_state, [1, self.input_size])
+        next_state = np.reshape(scale(next_state), [1, self.input_size])
         self.agent.add_to_experience(state, action, reward, next_state, done)
 
         return next_state
+
+
+def scale(x):
+    return x / 255
 
 
 def get_reward(enemy_health, last_enemy_health, own_health, last_own_health):
