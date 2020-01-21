@@ -62,68 +62,78 @@ class Trainer:
                 # this is for logging
                 episode_reward = 0
 
-                last_action = 0
-
                 # this is for frameskip
                 frame = -1
 
                 while not done:
                     frame += 1
-                    frame_is_skipped = frame % self.frameskip == 0 and self.frameskip_enabled
 
-                    # implement frameskip because actions take some frames to hit in Streetfighter
-                    if not frame % self.frameskip == 0 and self.frameskip_enabled:
-                        action = self.agent.get_action_for(state)
-                        last_action = action
-                    else:
-                        action = -1
+                    # predict the best action for the current state s
+                    action = self.agent.get_action_for(state)
 
                     # apply the predicted action to the sate and receive next_state
                     next_state, _, done, ram = self.env.step(action_to_array(action, self.output_size))
 
+                    # ------------------------------------------------------------------------------------------------ #
+                    # skip n frames so that the observed s' is acutally a consequence of s(a)
+                    if self.frameskip_enabled:
+                        for i in range(self.frameskip):
+                            if not done:
+                                next_state, _, done, ram = self.env.step(self.noop)
+
                     enemy_health = ram['enemy_health']
                     own_health = ram['health']
 
-                    if not frame_is_skipped:
-                        reward = get_reward(enemy_health, last_enemy_health, own_health, last_own_health)
+                    # get the reward for this s' for t+n
+                    reward = get_reward(enemy_health, last_enemy_health, own_health, last_own_health)
 
-                    # ------------------------------------------------------------------------------------------------ #
-                    if own_health < 0 or enemy_health < 0:
-                        print("Round over, got {} reward without KO".format(episode_reward))
-                        while not done or ram['enemy_health'] == base_health and ram['own_health'] == base_health:
-                            next_state, _, done, ram = self.env.step(self.start)
+                    # check if the round is over...
+                    if own_health <= -1 or enemy_health <= -1:  # this means the round is over
+                        print("Round over, {}:{} got {} reward without KO".format(
+                            ram['matches_won'],
+                            ram['enemy_matches_won'],
+                            episode_reward
+                        ))
 
-                        state = np.reshape(scale(next_state), [1, self.input_size])
+                        # remember these for remembering below, we first need to find out if done is true or not
+                        start_state = state
+                        skipped_to_state = next_state
+
+                        # we step thru the waiting screen, in case it's the second win we want the episode to be done
+                        while True:
+                            _, _, done, ram = self.env.step(self.start)
+                            if (ram['enemy_health'] == base_health and ram['health'] == base_health) or done:
+                                break
+
+                        # add this terminal state (state, action, state', reward and DONE) to the models experience
+                        state = self.remember(start_state, action, reward, skipped_to_state, done)
+
+                        # we end this training session and start the next frame with new state and reset health
                         last_enemy_health = base_health
                         last_own_health = base_health
 
+                    # ...or if it was just another frame
                     else:
+                        # get ready for the next frame
                         last_enemy_health = enemy_health
                         last_own_health = own_health
 
-                    if not frame_is_skipped:
                         if not headless:
                             self.env.render()
-                        state = self.reshape_next_state_and_add_to_model_experience(
-                            state,
-                            last_action,
-                            reward,
-                            next_state,
-                            done
-                        )
 
-                        # for tensorboard
+                        # add the frame (state, action, state', reward) to the models experience
+                        state = self.remember(state, action, reward, next_state, done)
+
+                        # log some metrics to tensorboard
                         episode_reward += reward
                         with self.summary_writer.as_default():
                             tf.summary.scalar('episode reward', reward, step=episode_index)
-                    else:
-                        state = np.reshape(scale(next_state), [1, self.input_size])
 
                     del next_state
 
                 print("Episode {}# Reward: {}".format(episode_index, episode_reward))
                 print("Training...")
-                self.agent.train_on_experience()  # before the next run we fit our model
+                self.agent.train_on_experience()  # before the next episode we fit our model
                 print("Done!")
 
         finally:
@@ -131,9 +141,7 @@ class Trainer:
             self.agent.save_model()
 
     # add the state and action to the memory to train on once the episode is done
-    def reshape_next_state_and_add_to_model_experience(self, state, action, reward, next_state, done):
-        if reward > 0:
-            print("Adding {} reward for action {}".format(reward, action))
+    def remember(self, state, action, reward, next_state, done):
         next_state = np.reshape(scale(next_state), [1, self.input_size])
         self.agent.add_to_experience(state, action, reward, next_state, done)
 
@@ -162,13 +170,6 @@ def get_reward(enemy_health, last_enemy_health, own_health, last_own_health):
 
             if reward != 0:
                 print("Hit enemy for {} reward".format(reward))
-
-            if enemy_health == -1:
-                reward = reward + 50  # reward for ko
-                print("Enemy KO")
-            elif own_health == -1:
-                reward = reward - 100  # ... in both ways
-                print("Player KO")
 
     return reward
 
