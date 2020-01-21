@@ -3,19 +3,28 @@ import random
 from random import randint
 from random import seed
 
+import gc
 import numpy as np
+import tensorflow as tf
 from tensorflow.keras.callbacks import TensorBoard, CSVLogger
 from tensorflow.keras.layers import Dense, InputLayer
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow_core.python.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
+from pympler.tracker import SummaryTracker
 
+tracker = SummaryTracker()
 csv_logger = CSVLogger('training.log', append=True, separator='|')
+
+class MyCustomCallback(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        gc.collect()
 
 
 class Agent:
     def __init__(self, state_size, action_size, gamma, epsilon, learning_rate, log_dir, batch_size):
         self.replay_buffer = {'state': [], 'action': [], 'reward': [], 'next_state': [], 'done': []}
+        self.replay_buffer_size = 0
 
         self.state_size = state_size
         self.action_size = action_size
@@ -37,7 +46,7 @@ class Agent:
         self.checkpoint = ModelCheckpoint(
             self.filepath_best,
             monitor='loss',
-            verbose=1,
+            verbose=0,
             save_best_only=True,
             save_weights_only=True,
             save_freq=10,
@@ -67,7 +76,10 @@ class Agent:
 
         # this lets us pick up training of the last model with the best loss
         if os.path.isfile(self.filepath_best):
+            print("Loaded model weights from {}", self.filepath_best)
             model.load_weights(self.filepath_best)
+        else:
+            print("Initialized empty model")
         return model
 
     # save the model with suffix "_last"
@@ -91,9 +103,22 @@ class Agent:
             for key in self.replay_buffer.keys():
                 self.replay_buffer[key].pop(0)
 
+        #  this is the only way to free memory because python memory management sucksssss
+        if self.replay_buffer_size > self.max_experiences * 2:
+            self._clear_replay_buffer()
+
         experience = {'state': state, 'action': action, 'reward': reward, 'next_state': next_state, 'done': done}
         for key, value in experience.items():
             self.replay_buffer[key].append(value)
+
+    def _clear_replay_buffer(self):
+        print("Clearing replay buffer...")
+        copy = self.replay_buffer.copy()
+        del self.replay_buffer
+        self.replay_buffer = copy
+        gc.collect()
+        tracker.print_diff()
+        print("Done!")
 
     # update the q values in the table
     # We predict a q value, multiply it with the discount factor depending on how much weight we want to give our
@@ -134,8 +159,8 @@ class Agent:
             self.model.fit(
                 state,          # our q
                 predicted_q,    # our q'
-                verbose=2,
-                callbacks=[self.checkpoint, self.tb_call_back, self.reduce_lr, csv_logger]
+                verbose=0,
+                callbacks=[self.checkpoint, self.tb_call_back, self.reduce_lr, MyCustomCallback(), csv_logger]
             )
 
         if self.epsilon > self.exploration_min:

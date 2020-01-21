@@ -4,9 +4,8 @@ import os
 import numpy as np
 import retro
 import tensorflow as tf
-from Agent import Agent
 from Actions import action_to_array
-import gc
+from Agent import Agent
 
 base_health = 176  # the base health for streetfighter in ram
 
@@ -111,6 +110,8 @@ class Trainer:
                         done
                     )
 
+                    del next_state
+
                     # for tensorboard
                     episode_rewards[episode_index] += reward
                     avg_rewards = episode_rewards[max(0, episode_index - 100):(episode_index + 1)].mean()
@@ -121,12 +122,6 @@ class Trainer:
 
                 print("Episode {}# Reward: {}".format(episode_index, episode_rewards[episode_index]))
                 self.agent.train_on_experience()  # before the next run we fit our model
-
-                if episode_index % 20 == 0 and episode_index != 0:
-                    print("Colleting garbage...")
-                    gc.collect()
-                    tracker.print_diff()
-                    print("Done!")
 
         finally:
             # save the model on quitting training
@@ -166,7 +161,7 @@ def get_reward(enemy_health, last_enemy_health, own_health, last_own_health):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--headless', action='store_true', default=False, help='Run in headless mode')
+    parser.add_argument('--headless', action='store_true', default=True, help='Run in headless mode')
     args = parser.parse_args()
 
     streetfighter_training = Trainer()
