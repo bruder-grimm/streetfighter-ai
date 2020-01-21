@@ -30,8 +30,7 @@ class Trainer:
         start[5] = 1
         self.start = start
 
-
-        self.frameskip_enabled = False
+        self.frameskip_enabled = True
         self.frameskip = 7
 
         self.agent = Agent(
@@ -70,34 +69,25 @@ class Trainer:
 
                 while not done:
                     frame += 1
+                    frame_is_skipped = frame % self.frameskip == 0 and self.frameskip_enabled
 
                     # implement frameskip because actions take some frames to hit in Streetfighter
                     if not frame % self.frameskip == 0 and self.frameskip_enabled:
-                        next_state, _, done, ram = self.env.step(self.noop)
-
-                        if not done:  # advance the state s_prime to be s_prime + frameskip
-                            state = np.reshape(scale(next_state), [1, self.input_size])
-                        else:  # premature end, we usually hope that the game doesn't end during skipped frames
-                            print("Episode {}# done during skipped frame, rewards may be off".format(episode_index))
-                            state = self.reshape_next_state_and_add_to_model_experience(
-                                state,
-                                last_action,
-                                get_reward(ram['enemy_health'], last_enemy_health, ram['health'], last_own_health),
-                                next_state,
-                                done
-                            )
-                        continue
-
-                    last_action = self.agent.get_action_for(state)
+                        action = self.agent.get_action_for(state)
+                        last_action = action
+                    else:
+                        action = -1
 
                     # apply the predicted action to the sate and receive next_state
-                    next_state, _, done, ram = self.env.step(action_to_array(last_action, self.output_size))
+                    next_state, _, done, ram = self.env.step(action_to_array(action, self.output_size))
 
                     enemy_health = ram['enemy_health']
                     own_health = ram['health']
 
-                    reward = get_reward(enemy_health, last_enemy_health, own_health, last_own_health)
+                    if not frame_is_skipped:
+                        reward = get_reward(enemy_health, last_enemy_health, own_health, last_own_health)
 
+                    # ------------------------------------------------------------------------------------------------ #
                     if own_health < 0 or enemy_health < 0:
                         print("Round over, got {} reward without KO".format(episode_reward))
                         while not done or ram['enemy_health'] == base_health and ram['own_health'] == base_health:
@@ -111,24 +101,25 @@ class Trainer:
                         last_enemy_health = enemy_health
                         last_own_health = own_health
 
-                    if not headless:
-                        self.env.render()
+                    if not frame_is_skipped:
+                        if not headless:
+                            self.env.render()
+                        state = self.reshape_next_state_and_add_to_model_experience(
+                            state,
+                            last_action,
+                            reward,
+                            next_state,
+                            done
+                        )
 
-                    state = self.reshape_next_state_and_add_to_model_experience(
-                        state,
-                        last_action,
-                        reward,
-                        next_state,
-                        done
-                    )
+                        # for tensorboard
+                        episode_reward += reward
+                        with self.summary_writer.as_default():
+                            tf.summary.scalar('episode reward', reward, step=episode_index)
+                    else:
+                        state = np.reshape(scale(next_state), [1, self.input_size])
 
                     del next_state
-
-                    # for tensorboard
-                    episode_reward += reward
-
-                    with self.summary_writer.as_default():
-                        tf.summary.scalar('episode reward', reward, step=episode_index)
 
                 print("Episode {}# Reward: {}".format(episode_index, episode_reward))
                 print("Training...")
@@ -141,6 +132,8 @@ class Trainer:
 
     # add the state and action to the memory to train on once the episode is done
     def reshape_next_state_and_add_to_model_experience(self, state, action, reward, next_state, done):
+        if reward > 0:
+            print("Adding {} reward for action {}".format(reward, action))
         next_state = np.reshape(scale(next_state), [1, self.input_size])
         self.agent.add_to_experience(state, action, reward, next_state, done)
 
@@ -177,7 +170,7 @@ def get_reward(enemy_health, last_enemy_health, own_health, last_own_health):
                 reward = reward - 100  # ... in both ways
                 print("Player KO")
 
-    return reward / 100
+    return reward
 
 
 if __name__ == "__main__":

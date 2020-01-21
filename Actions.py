@@ -29,5 +29,9 @@ def action_to_array(action, n):
     # return action_set[action]
 
     action_array = np.zeros(n)
+
+    if action < 0:
+        return action_array
+
     action_array[action] = 1
     return action_array
