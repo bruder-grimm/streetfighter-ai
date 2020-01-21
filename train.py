@@ -77,7 +77,7 @@ class Trainer:
                     # ------------------------------------------------------------------------------------------------ #
                     # skip n frames so that the observed s' is acutally a consequence of s(a)
                     if self.frameskip_enabled:
-                        for i in range(self.frameskip):
+                        for _ in range(self.frameskip):
                             if not done:
                                 next_state, _, done, ram = self.env.step(self.noop)
 
@@ -89,6 +89,9 @@ class Trainer:
 
                     # check if the round is over...
                     if own_health <= -1 or enemy_health <= -1:  # this means the round is over
+                        for _ in range(5):  # skip some frames so that scores come in
+                            _, _, done, ram = self.env.step(self.start)
+
                         print("Round over, {}:{} got {} reward without KO".format(
                             ram['matches_won'],
                             ram['enemy_matches_won'],
