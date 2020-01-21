@@ -26,9 +26,13 @@ class Trainer:
         self.output_size = self.env.action_space.n
 
         self.noop = np.zeros(self.output_size)
+        start = np.zeros(self.output_size)
+        start[5] = 1
+        self.start = start
 
-        self.frameskip_enabled = True
-        self.frameskip = 10
+
+        self.frameskip_enabled = False
+        self.frameskip = 7
 
         self.agent = Agent(
             self.input_size,
@@ -43,8 +47,6 @@ class Trainer:
         self.summary_writer = tf.summary.create_file_writer(self.log_dir)
 
     def run(self, headless):
-        from pympler.tracker import SummaryTracker
-        tracker = SummaryTracker()
 
         try:
             for episode_index in range(self.episodes):
@@ -59,7 +61,7 @@ class Trainer:
                 last_own_health = base_health
 
                 # this is for logging
-                episode_rewards = np.empty(self.episodes)
+                episode_reward = 0
 
                 last_action = 0
 
@@ -76,7 +78,7 @@ class Trainer:
                         if not done:  # advance the state s_prime to be s_prime + frameskip
                             state = np.reshape(scale(next_state), [1, self.input_size])
                         else:  # premature end, we usually hope that the game doesn't end during skipped frames
-                            print("Episode done during skipped frame, rewards may be off")
+                            print("Episode {}# done during skipped frame, rewards may be off".format(episode_index))
                             state = self.reshape_next_state_and_add_to_model_experience(
                                 state,
                                 last_action,
@@ -96,8 +98,18 @@ class Trainer:
 
                     reward = get_reward(enemy_health, last_enemy_health, own_health, last_own_health)
 
-                    last_enemy_health = enemy_health
-                    last_own_health = own_health
+                    if own_health < 0 or enemy_health < 0:
+                        print("Round over, got {} reward without KO".format(episode_reward))
+                        while not done or ram['enemy_health'] == base_health and ram['own_health'] == base_health:
+                            next_state, _, done, ram = self.env.step(self.start)
+
+                        state = np.reshape(scale(next_state), [1, self.input_size])
+                        last_enemy_health = base_health
+                        last_own_health = base_health
+
+                    else:
+                        last_enemy_health = enemy_health
+                        last_own_health = own_health
 
                     if not headless:
                         self.env.render()
@@ -113,15 +125,15 @@ class Trainer:
                     del next_state
 
                     # for tensorboard
-                    episode_rewards[episode_index] += reward
-                    avg_rewards = episode_rewards[max(0, episode_index - 100):(episode_index + 1)].mean()
+                    episode_reward += reward
 
                     with self.summary_writer.as_default():
                         tf.summary.scalar('episode reward', reward, step=episode_index)
-                        tf.summary.scalar('running avg reward(100)', avg_rewards, step=episode_index)
 
-                print("Episode {}# Reward: {}".format(episode_index, episode_rewards[episode_index]))
+                print("Episode {}# Reward: {}".format(episode_index, episode_reward))
+                print("Training...")
                 self.agent.train_on_experience()  # before the next run we fit our model
+                print("Done!")
 
         finally:
             # save the model on quitting training
@@ -145,23 +157,32 @@ def get_reward(enemy_health, last_enemy_health, own_health, last_own_health):
     if enemy_health != last_enemy_health or own_health != last_own_health:
         if enemy_health != base_health or own_health != base_health:
 
-            inflicted_damage_reward = (last_enemy_health - enemy_health) * 2
-            received_damage_penalty = (own_health - last_own_health) / 3
+            if last_enemy_health > enemy_health:
+                inflicted_damage_reward = (last_enemy_health - enemy_health)
+            else:
+                inflicted_damage_reward = 0
+            # received_damage_penalty = (own_health - last_own_health)
+            received_damage_penalty = 0
 
             # our reward is defined by 'damage I inflict - damage I receive'
             reward = inflicted_damage_reward + received_damage_penalty
 
+            if reward != 0:
+                print("Hit enemy for {} reward".format(reward))
+
             if enemy_health == -1:
                 reward = reward + 50  # reward for ko
+                print("Enemy KO")
             elif own_health == -1:
                 reward = reward - 100  # ... in both ways
+                print("Player KO")
 
     return reward / 100
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--headless', action='store_true', default=True, help='Run in headless mode')
+    parser.add_argument('--headless', action='store_true', default=False, help='Run in headless mode')
     args = parser.parse_args()
 
     streetfighter_training = Trainer()

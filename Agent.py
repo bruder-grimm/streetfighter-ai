@@ -16,6 +16,7 @@ from pympler.tracker import SummaryTracker
 tracker = SummaryTracker()
 csv_logger = CSVLogger('training.log', append=True, separator='|')
 
+
 class MyCustomCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         gc.collect()
@@ -76,7 +77,7 @@ class Agent:
 
         # this lets us pick up training of the last model with the best loss
         if os.path.isfile(self.filepath_best):
-            print("Loaded model weights from {}", self.filepath_best)
+            print("Loaded model weights from {}".format(self.filepath_best))
             model.load_weights(self.filepath_best)
         else:
             print("Initialized empty model")
@@ -96,6 +97,7 @@ class Agent:
         return np.argmax(act_values[0])
 
     def add_to_experience(self, state, action, reward, next_state, done):
+        self.replay_buffer_size += 1
         if isinstance(action, np.int64):
             action = action.astype(int)
 
@@ -106,6 +108,7 @@ class Agent:
         #  this is the only way to free memory because python memory management sucksssss
         if self.replay_buffer_size > self.max_experiences * 2:
             self._clear_replay_buffer()
+            self.replay_buffer_size = 0
 
         experience = {'state': state, 'action': action, 'reward': reward, 'next_state': next_state, 'done': done}
         for key, value in experience.items():
