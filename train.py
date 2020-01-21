@@ -27,8 +27,8 @@ class Trainer:
 
         self.noop = np.zeros(self.output_size)
 
-        self.frameskip_enabled = False
-        self.frameskip = 5
+        self.frameskip_enabled = True
+        self.frameskip = 10
 
         self.agent = Agent(
             self.input_size,
@@ -145,16 +145,16 @@ def get_reward(enemy_health, last_enemy_health, own_health, last_own_health):
     if enemy_health != last_enemy_health or own_health != last_own_health:
         if enemy_health != base_health or own_health != base_health:
 
-            damage_reward = (last_enemy_health - enemy_health)
-            avoidance_reward = (own_health - last_own_health) / 2
+            inflicted_damage_reward = (last_enemy_health - enemy_health) * 2
+            received_damage_penalty = (own_health - last_own_health) / 3
 
             # our reward is defined by 'damage I inflict - damage I receive'
-            reward = damage_reward + avoidance_reward
+            reward = inflicted_damage_reward + received_damage_penalty
 
             if enemy_health == -1:
                 reward = reward + 50  # reward for ko
             elif own_health == -1:
-                reward = reward - 20  # ... in both ways
+                reward = reward - 100  # ... in both ways
 
     return reward / 100
 

@@ -17,6 +17,7 @@ class Player:
         )
         self.input_size = self.env.observation_space.shape[0]
         self.output_size = self.env.action_space.n
+
         self.model = Sequential()
 
         self.model.add(InputLayer(input_shape=self.input_size))
@@ -32,7 +33,7 @@ class Player:
 
     def run(self):
         state = self.env.reset()
-        state = np.reshape(state, [1, self.input_size])
+        state = np.reshape(scale(state), [1, self.input_size])
 
         done = False
 
@@ -40,11 +41,16 @@ class Player:
             act_values = self.model.predict(state)
 
             action = action_to_array(np.argmax(act_values[0]), self.output_size)
+            print("Action: ", action)
 
             observation, _, done, _ = self.env.step(action)
             self.env.render()
 
-            state = np.reshape(observation, [1, self.input_size])
+            state = np.reshape(scale(observation), [1, self.input_size])
+
+
+def scale(x):
+    return x / 255
 
 
 if __name__ == "__main__":
