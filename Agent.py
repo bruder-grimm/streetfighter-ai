@@ -138,7 +138,7 @@ class Agent:
         seed(1)
 
         for _ in range(self.batch_size):
-            sample = randint(0, collected_experience - 1)
+            sample = random.randrange(collected_experience)
 
             state = self.replay_buffer['state'][sample],
             action = self.replay_buffer['action'][sample],
