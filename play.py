@@ -27,6 +27,10 @@ class Player:
 
         self.model.compile(loss='mse')
 
+        self.noop = np.zeros(self.output_size)
+        self.frameskip_enabled = True
+        self.frameskip = 7
+
         # this lets us pick up training of the last model with the best loss
         if os.path.isfile(filepath):
             self.model.load_weights(filepath)
@@ -45,6 +49,12 @@ class Player:
 
             observation, _, done, _ = self.env.step(action)
             self.env.render()
+
+            # skip n frames so that the observed s' is actually a consequence of s(a)
+            if self.frameskip_enabled:
+                for _ in range(self.frameskip):
+                    if not done:
+                        observation, _, done, ram = self.env.step(self.noop)
 
             state = np.reshape(scale(observation), [1, self.input_size])
 

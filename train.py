@@ -25,11 +25,11 @@ class Trainer:
         self.input_size = self.env.observation_space.shape[0]
         self.output_size = self.env.action_space.n
 
-        self.noop = np.zeros(self.output_size)
         start = np.zeros(self.output_size)
         start[5] = 1
         self.start = start
 
+        self.noop = np.zeros(self.output_size)
         self.frameskip_enabled = True
         self.frameskip = 7
 
